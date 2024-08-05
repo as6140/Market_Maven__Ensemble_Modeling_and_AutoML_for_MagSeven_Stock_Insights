@@ -1,0 +1,706 @@
+<!-- index.html -->
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %} Dashboard {% endblock title %}
+{% block content %}
+
+<div class="pc-container">
+    <div class="pc-content">
+      <!-- [ Main Content ] start -->
+      <div class="row">
+        <div class="col-xl-6 col-md-6">
+            <div class="card">
+              <div class="card-body">
+                    <form method="post">
+                      {% csrf_token %}
+                      <div class="row mb-3 ">
+
+                          <div class="col-md-6">
+                          <div>Stock</div>
+                          <select name="csv_file"  id="csvSelector" class="form-select p-r-35" aria-label="Default select example"> 
+                            {% for csv_file in csv_files %}
+                              <option value="{{ csv_file }}" {% if csv_file == selected_csv %}selected{% endif %}>
+                                  {{ csv_file }}
+                              </option>
+                            {% endfor %}
+                          </select>
+                      </div>
+                      <div class="row mb-3 ">
+                          <div class="col-md-6" id="fixedDropdown" style="display: none;">
+                            <div>Prediction days</div>
+                            <select  class="form-select" name="days" >
+                              {% for day in day_range %}
+                                <option value="{{ day }}" {% if day == selected_days %}selected{% endif %}>
+                                    {{ day }}
+                                </option>
+                              {% endfor %}
+                            </select>
+                        </div>
+                      </div>
+
+                      <div class="row mb-3" id ="dynamicDropdownParent" style="display: none;">
+                        <div class="col-md-6"   >
+                          <div>Model</div>
+                            <select  id="dynamicDropdown" class="form-select" name="algoModel" style="display: none;" >
+                            </select>
+                        </div>
+                      </div>
+                     
+                        <div class="col-md-3 mt-4">
+                          <button  class="btn btn-primary" type="submit">Update Graph</button>
+                        </div>
+                      </div>
+                    </form>
+                              
+
+              </div>
+            </div>
+        </div>
+
+        <div class="col-xl-6 col-md-6">
+            <div class="card h-60">
+                <div id="priceChart2"></div>
+            </div>
+        </div>
+      </div>
+
+      <div class="row">
+      
+
+        <div class="row">
+          <div class="col-md-6 mb-4 d-flex">
+              <div class="card flex-fill">
+                  <div id="predictionChart"></div>
+              </div>
+          </div>
+         
+          <div class="col-md-6 mb-4 d-flex">
+              <div class="card flex-fill">
+                  <div id="political"></div>
+              </div>
+          </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 mb-4 d-flex">
+            <div class="card flex-fill">
+              <div id="economicChart"></div>
+            </div>
+        </div>
+       
+        <div class="col-md-6 mb-4 d-flex">
+            <div class="card flex-fill">
+              <div id="socialChart"></div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div class="row">
+      <div class="col-md-6 mb-4 d-flex">
+          <div class="card flex-fill">
+            <div id="technicalChart"></div>
+          </div>
+      </div>
+     
+      <div class="col-md-6 mb-4 d-flex">
+          <div class="card flex-fill">
+            <div id="environmentalChart"></div>
+          </div>
+      </div>
+  </div>
+
+       
+
+
+  <div class="row">
+    <div class="col-md-6 mb-4 d-flex">
+        <div class="card flex-fill">
+          <div id="legalChart"></div>
+        </div>
+    </div>
+   
+   
+</div>
+      
+       
+       
+       
+     
+    </div>
+    </div>
+</div>
+{% endblock content %}
+{% block extra_js %}
+  <!-- Apex Chart -->
+  <script src="{% static 'assets/js/plugins/apexcharts.min.js' %}"></script>
+  <script src="{% static 'assets/js/pages/dashboard-default.js' %}"></script>
+  <script src='https://cdn.plot.ly/plotly-2.30.0.min.js'></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-more.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/modules/export-data.js"></script>
+  <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://code.highcharts.com/modules/solid-gauge.js"></script>
+
+  <!-- [Page Specific JS] end -->
+
+  <script>
+    $(document).ready(function() {
+        $('#csvSelector').change(function() {
+            var selectedValue = $(this).val();
+            if (selectedValue) {
+                $('#fixedDropdown').show();
+                $('#dynamicDropdown').show();
+                $('#dynamicDropdownParent').show();
+            } else {
+                $('#fixedDropdown').hide();
+                $('#dynamicDropdown').hide();
+                $('#dynamicDropdownParent').hide();
+            }
+        });
+    });
+    </script>
+
+<script>
+  document.getElementById('csvSelector').addEventListener('change', function() {
+      fetch('/get-data-for-csv/', {  // URL to your Django view
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': '{{ csrf_token }}'
+          },
+          body: JSON.stringify({ csv_file: this.value })
+      })
+      .then(response => response.json())
+      .then(data => {
+          const dynamicDropdown = document.getElementById('dynamicDropdown');
+          dynamicDropdown.innerHTML = '';  // Clear existing options
+          data.forEach(item => {
+              let option = new Option(item.text, item.value);
+              dynamicDropdown.add(option);
+          });
+      })
+      .catch(error => console.error('Error:', error));
+  });
+  </script>
+
+  <script>
+    // Parse the JSON data from the Django template
+    var politicalChartData = JSON.parse('{{ political_chart_data|escapejs }}');
+    let titleVal = 'Political : ' + politicalChartData.public_opinion;
+    var data = [
+        {
+            domain: { x: [0, 1], y: [0, 1] },
+            value: politicalChartData.value,
+            title: { text: titleVal },
+            type: "indicator",
+            mode: "gauge+number",
+            gauge: {
+                axis: { visible: true, range: [0, 1] },
+                bar: { color: 'red' }, // default color
+                steps: [
+                    { range: [0, politicalChartData.value], color: 'red' },
+                    { range: [politicalChartData.value, 1], color: 'blue' }
+                ]
+            },
+        }
+    ];
+
+    var layout = { width: 600, height: 500, margin: { t: 0, b: 0 } };
+    Plotly.newPlot('political', data, layout);
+</script>
+
+
+     
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+      var economicChartData = JSON.parse('{{ economic_chart_data|escapejs }}');
+
+      Highcharts.chart('economicChart', {
+          chart: {
+              type: 'line'
+          },
+          title: {
+              text: 'Economic Data',
+              align: 'left',
+              style: {
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  fontFamily: 'Roboto',
+                  color: '#263238'
+              }
+          },
+          xAxis: {
+              categories: economicChartData.x,
+              labels: {
+                  step: 30 , // Show a limited number of labels
+                  rotation: 0, // Labels are horizontal
+              }
+          },
+          yAxis: {
+              title: {
+                  text: 'Value'
+              }
+          },
+          series: economicChartData.y,
+          tooltip: {
+              valueDecimals: 2
+          },
+          plotOptions: {
+              line: {
+                  marker: {
+                      enabled: false // Disable markers for a cleaner look
+                  }
+              }
+          }
+      });
+  });
+</script>
+    <script>
+        // Parse the JSON data from the Django template
+        var technologicalChartData = JSON.parse('{{ technological_chart_data|escapejs }}');
+
+        if (technologicalChartData) {
+            var options = {
+                chart: {
+                    type: 'bar'
+                  },
+                series: [{
+                    data: [{
+                      x: 'Technological',
+                      y: technologicalChartData.technological
+                    }, {
+                      x: 'Technological Peers',
+                      y: technologicalChartData.technologicalPeers
+                    }
+                    ]
+                  }],
+                yaxis: {
+                    min: 0,
+                    max: 1
+                } ,
+                title: {
+                    text: 'Technological',
+                    align: 'left',
+                    margin: 10,
+                    offsetX: 0,
+                    offsetY: 0,
+                    floating: false,
+                    style: {
+                    fontSize:  '14px',
+                    fontWeight:  'bold',
+                    fontFamily:  'Roboto',
+                    color:  '#263238'
+                    },
+                },
+                plotOptions: {
+                    bar: {
+                      distributed: true
+                    }
+                  }  
+                
+            };
+
+            var chart = new ApexCharts(document.querySelector("#technicalChart"), options);
+            chart.render();
+        }
+    </script>
+
+    <script>
+        // Parse the JSON data from the Django template
+        var environmentalChartData = JSON.parse('{{ environmental_chart_data|escapejs }}');
+
+        if (environmentalChartData) {
+          var options = {
+            chart: {
+              type: 'bar',
+              height: 400,
+              stacked: false,
+              toolbar: {
+                show: false
+              }
+            },
+            plotOptions: {
+              bar: {
+                horizontal: false,
+                columnWidth: '55%',
+                endingShape: 'rounded'
+              },
+            },
+            dataLabels: {
+              enabled: false
+            },
+            series: [{
+              name: 'Stock Scores',
+              data: [
+                environmentalChartData['Social Score'],
+                environmentalChartData['Governance Score'],
+                environmentalChartData['Environmental Score']
+              ]
+            }, {
+              name: 'Peer Scores',
+              data: [
+                environmentalChartData['Peer Social Score'],
+                environmentalChartData['Peer Governance Score'],
+                environmentalChartData['Peer Environmental Scores']
+              ]
+            }],
+            xaxis: {
+              categories: ['Social', 'Governance', 'Environmental'],
+              labels: {
+                style: {
+                  colors: ['#9e9e9e'],
+                  fontSize: '12px'
+                }
+              }
+            },
+           
+            yaxis: {
+              title: {
+                text: 'Scores',
+                style: {
+                  fontSize: '12px'
+                }
+              },
+              labels: {
+                style: {
+                  colors: '#9e9e9e',
+                  fontSize: '12px'
+                }
+              }
+            },
+            tooltip: {
+              y: {
+                formatter: function (val) {
+                  return val + " (Score)";
+                }
+              }
+            },
+            title: {
+              text: 'Environmental',
+              align: 'left',
+              style: {
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  fontFamily: 'Roboto',
+                  color: '#263238'
+              }
+            },
+            
+          }
+          
+          var chart = new ApexCharts(document.querySelector("#environmentalChart"), options);
+          
+          chart.render();
+          
+        
+        }
+    </script>
+
+
+    <script>
+        // Parse the JSON data from the Django template
+        var socialChartData = JSON.parse('{{ social_chart_data|escapejs }}');
+
+        if (socialChartData) {
+            var options = {
+              chart: {
+                type: 'bar',
+                height: 400,
+                stacked: false,
+                toolbar: {
+                  show: false
+                }
+              },
+                  series: [
+                  {
+                      name: 'Stock',
+                      data: [
+                          socialChartData['Twitter Posts'],
+                          socialChartData['Twitter Impressions'],
+                          socialChartData['Twitter Sentiment']
+                      ]
+                  },
+                  {
+                      name: 'Stock Peer',
+                      data: [
+                          socialChartData['Peer Twitter Posts'],
+                          socialChartData['Peer Twitter Impressions'],
+                          socialChartData['Peer Twitter Sentiment']
+                      ]
+                  }
+              ],
+              xaxis: {
+                  categories: ['Twitter Posts', 'Twitter Impressions', 'Twitter Sentiment'],
+                  labels: {
+                    style: {
+                      colors: ['#9e9e9e'],
+                      fontSize: '12px'
+                    }
+                  }
+              },
+              
+              
+              title: {
+                text: 'Social',
+                align: 'left',
+                style: {
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  fontFamily: 'Roboto',
+                  color: '#263238'
+              }
+              },
+              yaxis: {
+                title: {
+                  text: 'Scores',
+                  style: {
+                    fontSize: '12px'
+                  }
+                },
+                labels: {
+                  style: {
+                    colors: '#9e9e9e',
+                    fontSize: '12px'
+                  }
+                }
+              },
+              tooltip: {
+                y: {
+                  formatter: function (val) {
+                    return val + " (Score)";
+                  }
+                }
+              },
+              plotOptions: {
+                bar: {
+                    horizontal: false,
+                    columnWidth: '55%',
+                    endingShape: 'rounded'
+                }
+              },
+              dataLabels: {
+                enabled: false
+              },
+                
+            };
+
+            var chart = new ApexCharts(document.querySelector("#socialChart"), options);
+            chart.render();
+        }
+    </script>
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+      var legalChartData = JSON.parse('{{ legal_chart_data|escapejs }}'); // Make sure this has the correct data
+
+      Highcharts.chart('legalChart', {
+          chart: {
+              type: 'line'
+          },
+          title: {
+              text: 'Legal Data',
+              align: 'left',
+              style: {
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  fontFamily: 'Roboto',
+                  color: '#263238'
+              }
+          },
+          xAxis: {
+              categories: legalChartData.x,
+              labels: {
+                  step: 30  , // Show a limited number of labels
+                  rotation: 0 // Labels are horizontal
+              }
+          },
+          yAxis: {
+              title: {
+                  text: 'Value'
+              }
+          },
+          series: legalChartData.y,
+          tooltip: {
+              valueDecimals: 2
+          },
+          plotOptions: {
+              line: {
+                  marker: {
+                      enabled: false // Disable markers for a cleaner look
+                  }
+              }
+          }
+      });
+  });
+</script>
+  <script>
+    // Parse the JSON data from the Django template
+    var priceChartData = JSON.parse('{{ price_chart_data|escapejs }}');
+
+    if (priceChartData) {
+      var filteredCategories = priceChartData.x.filter(function(date) {
+        return date !== null;; // Replace 'None' (which will be `null` in JavaScript) with an empty string
+      });
+
+      var options = {
+        chart: {
+            type: 'line',
+            height: 'auto' // Setting height to 'auto' or give it a specific value
+        },
+        series: [{
+                name: 'Price',
+                data: priceChartData.y[0].data
+            }],
+        xaxis: {
+          categories: priceChartData.x,
+          labels: {
+              rotate: -45,
+              rotateAlways: true,
+              formatter: function(value, timestamp, index) {
+                  // Only show a label if the corresponding category isn't `null`
+                  // and if the index is a multiple of 7 (or whichever interval you prefer)
+                  return priceChartData.x[index] && index % 7 === 0 ? value : '';
+              }
+          }, // Filter out falsy values
+            
+            axisBorder: {
+              show: true,
+            },
+            axisTicks: {
+                show: true,
+            },
+        },
+       
+        tooltip: {
+            enabled: true,
+            x: {
+                format: 'MMM dd'
+            }
+        },
+        stroke: {
+            curve: 'smooth',
+        },
+        title: {
+            text: 'Price',
+            align: 'left',
+            margin: 10,
+            offsetX: 0,
+            offsetY: 0,
+            floating: false,
+            style: {
+                fontSize: '14px',
+                fontWeight: 'bold',
+                fontFamily: 'Roboto',
+                color: '#263238'
+            },
+        },
+        // Ensure there's no additional comma or syntax error after this
+    };
+
+        var chart = new ApexCharts(document.querySelector("#priceChart"), options);
+        chart.render();
+    }
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+      const priceChartData = JSON.parse('{{ price_chart_data|escapejs }}');
+
+      Highcharts.chart('priceChart2', {
+          chart: {
+              type: 'line'
+          },
+          title: {
+              text: 'Price Data',
+              align: 'left',
+              style: {
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  fontFamily: 'Roboto',
+                  color: '#263238'
+              } 
+          },
+          xAxis: {
+              categories: priceChartData.x,
+              labels: {
+                
+                step: 30, // This ensures that labels are shown at every 7th point
+                rotation: 0, // No rotation, labels are horizontal
+                align: 'center',
+                // Optional: Adjust style to reduce font size or padding if needed to fit labels without overlap
+                style: {
+                    fontSize: '10px',
+                    textOverflow: 'none' // Ensures the text doesn't overflow its allotted space
+                } 
+              }
+          },
+          yAxis: {
+              title: {
+                  text: 'Price'
+              }
+          },
+          series: [{
+              name: 'Price',
+              data: priceChartData.y[0].data
+          }],
+          tooltip: {
+              valueDecimals: 2
+          }
+      });
+  });
+</script>
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+      var predictionChartData = JSON.parse('{{ prediction_chart_data|escapejs }}');
+
+      Highcharts.chart('predictionChart', {
+          chart: {
+              type: 'line'
+          },
+          title: {
+              text: predictionChartData.algo_model,
+              align: 'left',
+              style: {
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  fontFamily: 'Roboto',
+                  color: '#263238'
+              }
+          },
+          xAxis: {
+              categories: predictionChartData.x,
+              labels: {
+                  step: 1 , // Show a limited number of labels
+                  rotation: 0, // Labels are horizontal
+              }
+          },
+          yAxis: {
+              title: {
+                  text: 'Price'
+              }
+          },
+          series: predictionChartData.y,
+          tooltip: {
+              valueDecimals: 2
+          },
+          plotOptions: {
+              line: {
+                  marker: {
+                      enabled: false // Disable markers for a cleaner look
+                  }
+              }
+          }
+      });
+  });
+</script>
+
+{% endblock extra_js %}
